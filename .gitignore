@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+artifacts/
+data/raw/*.csv
+review-first-mlops-project/
+.vscode/
+uvicorn.err.log
+uvicorn.out.log
