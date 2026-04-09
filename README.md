@@ -33,6 +33,24 @@ The project flow is:
 7. Store prediction history in SQLite
 8. Expose service health and Prometheus metrics
 
+### Architecture Diagram
+
+```mermaid
+flowchart LR
+    A[HDFS Log Dataset CSV] --> B[Training Pipeline]
+    B --> C[Saved Model<br/>model.joblib]
+    B --> D[Metrics<br/>metrics.json]
+    C --> E[FastAPI Inference Service]
+    E --> F[/predict]
+    E --> G[/health]
+    E --> H[/metrics]
+    F --> I[Anomaly Prediction]
+    F --> J[SQLite Prediction Log]
+    K[GitHub Actions] --> L[Test + Docker Build]
+    M[Docker Image] --> N[EC2 / Kubernetes Deployment]
+    E --> M
+```
+
 ## Tech Stack
 
 Core ML and API:
@@ -249,6 +267,35 @@ Example endpoints after deployment:
 Note:
 - if the real dataset is not copied to EC2, the container uses the fallback sample dataset
 - local training can still use the full real dataset
+
+## Screenshots
+
+Recommended screenshots to add:
+- Swagger UI home or `/docs`
+- successful anomaly prediction response
+- successful non-anomaly prediction response
+- `/predictions/recent` output
+- GitHub Actions successful workflow run
+- EC2 deployment or browser access on port `8000`
+
+Example structure:
+
+```text
+docs/images/
+|-- swagger-ui.png
+|-- anomaly-prediction.png
+|-- normal-prediction.png
+|-- recent-predictions.png
+|-- github-actions-success.png
+`-- ec2-deployment.png
+```
+
+After adding images, you can embed them like this:
+
+```md
+![Swagger UI](docs/images/swagger-ui.png)
+![Anomaly Prediction](docs/images/anomaly-prediction.png)
+```
 
 ## Kubernetes
 
