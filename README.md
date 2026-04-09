@@ -1,13 +1,54 @@
-# End-to-End MLOps Pipeline for HDFS Log Anomaly Detection
+# HDFS Log Anomaly Detection MLOps Project
 
-This project is a production-oriented starter for training and serving an HDFS log anomaly detection model with a lightweight DevOps toolchain. It includes model training, artifact persistence, a FastAPI inference service, Prometheus-compatible metrics, Docker packaging, GitHub Actions CI, and Kubernetes manifests for deployment.
+This project is an end-to-end MLOps pipeline for detecting anomalous HDFS log events. It trains a machine learning model on Hadoop log data, serves predictions through a FastAPI API, stores prediction history in SQLite, packages the service with Docker, validates changes with GitHub Actions, and can be deployed on EC2 or Kubernetes.
 
-## Architecture
+## Problem Statement
 
-- Training pipeline: load HDFS log data from CSV or generate a small sample log dataset, preprocess text and metadata, train a classifier, and save model artifacts.
-- Inference API: expose `/predict`, `/health`, `/metrics`, and `/predictions/recent` endpoints through FastAPI.
-- DevOps workflow: run tests in GitHub Actions, build a Docker image, and deploy via Kubernetes or Helm.
-- Monitoring: expose request count, latency, latest prediction score, and persist prediction history for inspection.
+Large distributed systems generate huge volumes of logs. Manually checking every log line is not realistic, so this project detects whether a new HDFS log event looks normal or anomalous.
+
+Given a new log event, the system predicts:
+- anomaly probability
+- anomaly / non-anomaly label
+
+## Why This Project Matters
+
+This project shows more than just model training. It demonstrates how to:
+- train and save an ML model
+- expose the model through an API
+- log predictions for later inspection
+- package the application with Docker
+- validate the project with CI
+- deploy the application to a server
+- prepare the service for Kubernetes-based deployment
+
+## Architecture Overview
+
+The project flow is:
+1. Load HDFS log data from `data/raw/`
+2. Train a text classification model
+3. Save the trained model and metrics
+4. Start a FastAPI inference service
+5. Send log events to `/predict`
+6. Return prediction results
+7. Store prediction history in SQLite
+8. Expose service health and Prometheus metrics
+
+## Tech Stack
+
+Core ML and API:
+- Python
+- Pandas
+- Scikit-learn
+- FastAPI
+- Uvicorn
+
+MLOps / DevOps:
+- Docker
+- GitHub Actions
+- SQLite
+- Kubernetes manifests
+- Prometheus metrics
+- AWS EC2
 
 ## Project Structure
 
@@ -27,77 +68,151 @@ This project is a production-oriented starter for training and serving an HDFS l
 `-- requirements.txt
 ```
 
-## Local Setup
+Important folders and files:
+- `src/models/train.py`: training pipeline
+- `src/data/hdfs.py`: fallback sample HDFS-like data
+- `app/main.py`: FastAPI service
+- `src/utils/prediction_store.py`: SQLite prediction logging
+- `tests/`: API and training tests
+- `k8s/`: Kubernetes manifests
+- `.github/workflows/ci.yml`: CI workflow
 
-```bash
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-python -m src.models.train
-uvicorn app.main:app --reload
+## Dataset
+
+The project is designed for an HDFS anomaly dataset with these core columns:
+- `content`
+- `component`
+- `level`
+- `block_id`
+- `anomaly`
+
+Local training can use a real CSV placed in `data/raw/`.
+
+Example schema:
+
+```csv
+content,component,level,block_id,anomaly
+"Receiving block blk_-1608999687919862906 src: /10.250.19.102:54106 dest: /10.250.19.102:50010","dfs.DataNode$DataXceiver",INFO,"blk_-1608999687919862906",0
+"Received exception while serving block blk_112233445566 broken pipe","dfs.DataNode$DataXceiver",ERROR,"blk_112233445566",1
 ```
 
-Open `http://127.0.0.1:8000/docs` for the Swagger UI.
+Note:
+- large raw datasets are intentionally not committed to GitHub
+- if no real CSV exists, the project falls back to a tiny built-in sample dataset so the app still runs
 
-## Sample Prediction Request
+## Model Training
 
-```bash
-curl -X POST "http://127.0.0.1:8000/predict" \
-  -H "Content-Type: application/json" \
-  -d "{\"content\":\"Error receiving block blk_-3544583377289625738 bad packet checksum detected\",\"component\":\"dfs.DataNode$DataXceiver\",\"level\":\"ERROR\",\"block_id\":\"blk_-3544583377289625738\"}"
+Training happens in `src/models/train.py`.
+
+What it does:
+- reads the first CSV from `data/raw/`
+- falls back to sample data if no CSV exists
+- vectorizes log text using TF-IDF
+- encodes categorical features like component, level, and block ID
+- trains a Logistic Regression classifier
+- evaluates the model
+- saves artifacts in `artifacts/`
+
+Artifacts produced:
+- `artifacts/model.joblib`: trained model pipeline
+- `artifacts/metrics.json`: training metrics
+- `artifacts/sample_payload.json`: sample request payload
+- `artifacts/predictions.db`: SQLite prediction history
+
+## API Endpoints
+
+Base URL locally:
+- `http://127.0.0.1:8000`
+
+Endpoints:
+- `GET /` : basic service message
+- `GET /health` : health check and training metrics
+- `POST /predict` : predict anomaly probability for a log event
+- `GET /predictions/recent` : recent prediction history from SQLite
+- `GET /metrics` : Prometheus-compatible metrics
+
+Example `/predict` request:
+
+```json
+{
+  "content": "Received exception while serving block blk_112233445566 broken pipe",
+  "component": "dfs.DataNode$DataXceiver",
+  "level": "ERROR",
+  "block_id": "blk_112233445566"
+}
 ```
 
-## Training Pipeline
+Example response:
 
-The training script will read the first CSV file from `data/raw/` when available. If no dataset is present, it automatically generates a small HDFS-like sample dataset so the project remains runnable out of the box.
-
-Artifacts produced in `artifacts/`:
-
-- `model.joblib`: serialized scikit-learn pipeline
-- `metrics.json`: training metrics including accuracy, precision, recall, F1, and ROC-AUC
-- `sample_payload.json`: one valid example request payload
-- `predictions.db`: SQLite database storing recent prediction history
+```json
+{
+  "anomaly_probability": 0.9927,
+  "predicted_anomaly": true
+}
+```
 
 ## Prediction Logging
 
-Each `/predict` request is stored in `artifacts/predictions.db` with:
+Each prediction is stored in SQLite so the system behaves more like a real ML service.
 
+Stored fields include:
 - timestamp
-- log content
+- content
 - component
 - level
 - block ID
 - anomaly probability
 - predicted anomaly label
 
-You can inspect recent predictions through:
+Example recent predictions call:
 
 ```bash
 curl "http://127.0.0.1:8000/predictions/recent?limit=10"
 ```
 
-## Expected Dataset Schema
+## Local Development
 
-Place an HDFS CSV inside `data/raw/` with these columns:
+Create and activate a virtual environment:
 
-```csv
-content,component,level,block_id,anomaly
-"Receiving block blk_-1608999687919862906 src /10.250.19.102 dest /10.250.19.102","dfs.DataNode$DataXceiver",INFO,"blk_-1608999687919862906",0
-"Error receiving block blk_-3544583377289625738 bad packet checksum detected","dfs.DataNode$DataXceiver",ERROR,"blk_-3544583377289625738",1
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
-Where:
+Train the model:
 
-- `content` is the raw log message
-- `component` is the HDFS service/component
-- `level` is the log level like `INFO` or `ERROR`
-- `block_id` is the HDFS block identifier
-- `anomaly` is the target label with `0` for normal and `1` for anomalous
+```bash
+python -m src.models.train
+```
+
+Run the API:
+
+```bash
+python -m uvicorn app.main:app --reload
+```
+
+Open:
+- `http://127.0.0.1:8000/docs`
+- `http://127.0.0.1:8000/health`
+
+Run tests:
+
+```bash
+python -m pytest
+```
 
 ## Docker
 
+Build the image:
+
 ```bash
 docker build -t hdfs-log-anomaly-api .
+```
+
+Run the container:
+
+```bash
 docker run -p 8000:8000 hdfs-log-anomaly-api
 ```
 
@@ -107,34 +222,67 @@ Or with Compose:
 docker compose up --build
 ```
 
-## Kubernetes
+## GitHub Actions
 
-Apply the manifests:
-
-```bash
-kubectl apply -f k8s/deployment.yaml
-kubectl apply -f k8s/service.yaml
-```
-
-If you use the Prometheus Operator, you can also apply:
-
-```bash
-kubectl apply -f k8s/prometheus-monitor.yaml
-```
-
-## CI/CD
-
-The GitHub Actions workflow:
-
-- installs Python dependencies
-- runs `pytest`
+The CI workflow does the following on push and pull request:
+- installs dependencies
+- runs tests
 - builds the Docker image
 
-## Next Improvements
+This validates that the repository is healthy and container-ready.
 
-- replace the sample fallback data with the full HDFS_v1 dataset
-- push container images to GHCR, ECR, or Docker Hub
-- add Helm templates instead of static Helm metadata only
-- add MLflow for experiment tracking
-- add drift detection for log distributions
-- add automatic retraining and rollout on approved model changes
+## EC2 Deployment
+
+The Dockerized API was validated on AWS EC2.
+
+Typical flow:
+1. clone the repository on EC2
+2. build the Docker image
+3. run the container on port `8000`
+4. open port `8000` in the EC2 security group
+5. access the API from the browser
+
+Example endpoints after deployment:
+- `http://<EC2-PUBLIC-IP>:8000/health`
+- `http://<EC2-PUBLIC-IP>:8000/docs`
+
+Note:
+- if the real dataset is not copied to EC2, the container uses the fallback sample dataset
+- local training can still use the full real dataset
+
+## Kubernetes
+
+Kubernetes manifests are included in `k8s/` for deployment and service exposure.
+
+Included resources:
+- deployment manifest
+- service manifest
+- Prometheus ServiceMonitor manifest
+
+Recommended path:
+- first validate locally with Docker or EC2
+- then deploy with Minikube for a free Kubernetes setup
+- later move to a managed cluster such as EKS if needed
+
+## Current Status
+
+This project currently supports:
+- real local training on HDFS anomaly data
+- FastAPI inference service
+- anomaly and non-anomaly predictions
+- prediction logging with SQLite
+- Docker packaging
+- GitHub Actions CI
+- EC2 deployment
+- Kubernetes manifests for the next deployment step
+
+## Future Improvements
+
+Planned next steps:
+- deploy and validate on Minikube
+- make EC2 use the full real dataset as well
+- add screenshots and architecture diagram
+- add experiment tracking with MLflow
+- add drift monitoring
+- add model version metadata endpoint
+- improve preprocessing such as duplicate removal and data quality checks
