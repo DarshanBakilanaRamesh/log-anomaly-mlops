@@ -24,7 +24,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run tests
-        run: pytest
+        run: PYTHONPATH=. pytest
 
       - name: Build Docker image
         run: docker build -t hdfs-log-anomaly-api:ci .
