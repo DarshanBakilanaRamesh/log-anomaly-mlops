@@ -270,32 +270,29 @@ Note:
 
 ## Screenshots
 
-Recommended screenshots to add:
-- Swagger UI home or `/docs`
-- successful anomaly prediction response
-- successful non-anomaly prediction response
-- `/predictions/recent` output
-- GitHub Actions successful workflow run
-- EC2 deployment or browser access on port `8000`
+### Swagger UI
 
-Example structure:
-
-```text
-docs/images/
-|-- swagger-ui.png
-|-- anomaly-prediction.png
-|-- normal-prediction.png
-|-- recent-predictions.png
-|-- github-actions-success.png
-`-- ec2-deployment.png
-```
-
-After adding images, you can embed them like this:
-
-```md
 ![Swagger UI](docs/images/swagger-ui.png)
+
+### Anomaly Prediction Example
+
 ![Anomaly Prediction](docs/images/anomaly-prediction.png)
-```
+
+### Normal Prediction Example
+
+![Normal Prediction](docs/images/normal-prediction.png)
+
+### Recent Prediction History
+
+![Recent Predictions](docs/images/recent-predictions.png)
+
+### GitHub Actions CI Success
+
+![GitHub Actions Success](docs/images/github-actions-success.png)
+
+### EC2 Deployment
+
+![EC2 Deployment](docs/images/ec2-deployment.png)
 
 ## Kubernetes
 
