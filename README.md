@@ -1,39 +1,41 @@
 # HDFS Log Anomaly Detection MLOps Project
 
-This project is an end-to-end MLOps pipeline for detecting anomalous HDFS log events. It trains a machine learning model on Hadoop log data, serves predictions through a FastAPI API, stores prediction history in SQLite, packages the service with Docker, validates changes with GitHub Actions, and can be deployed on EC2 or Kubernetes.
+This project is a practical MLOps workflow for detecting anomalous HDFS log events.
 
-## Problem Statement
+The idea is simple: train a model on historical HDFS logs, serve that model through an API, store prediction history, package everything with Docker, validate changes with GitHub Actions, and run the service on AWS EC2. Kubernetes manifests are also included so the project is ready for cluster-based deployment on a machine with enough resources.
 
-Large distributed systems generate huge volumes of logs. Manually checking every log line is not realistic, so this project detects whether a new HDFS log event looks normal or anomalous.
+## What the project does
 
-Given a new log event, the system predicts:
-- anomaly probability
-- anomaly / non-anomaly label
+Distributed systems generate a huge number of log messages, and manually reviewing them is not realistic. This project helps by classifying a new HDFS log event as normal or anomalous.
 
-## Why This Project Matters
+Given a new log, the system returns:
+- the anomaly probability
+- the final anomaly / non-anomaly prediction
 
-This project shows more than just model training. It demonstrates how to:
-- train and save an ML model
-- expose the model through an API
-- log predictions for later inspection
-- package the application with Docker
-- validate the project with CI
-- deploy the application to a server
-- prepare the service for Kubernetes-based deployment
+## Why this project is useful
 
-## Architecture Overview
+This is not just a model training script. It shows the full path from data to deployment:
+- training a machine learning model
+- exposing it through a FastAPI service
+- logging predictions in SQLite
+- packaging the application with Docker
+- validating the codebase with GitHub Actions
+- deploying the service on EC2
+- preparing the app for Kubernetes deployment
 
-The project flow is:
+## How it works
+
+At a high level, the flow looks like this:
 1. Load HDFS log data from `data/raw/`
 2. Train a text classification model
-3. Save the trained model and metrics
-4. Start a FastAPI inference service
-5. Send log events to `/predict`
-6. Return prediction results
+3. Save the trained model and evaluation metrics
+4. Start the FastAPI inference service
+5. Send new logs to `/predict`
+6. Return the prediction result
 7. Store prediction history in SQLite
 8. Expose service health and Prometheus metrics
 
-### Architecture Diagram
+## Architecture Diagram
 
 ```mermaid
 flowchart LR
@@ -51,16 +53,16 @@ flowchart LR
     E --> M
 ```
 
-## Tech Stack
+## Tech stack
 
-Core ML and API:
+ML and API:
 - Python
 - Pandas
 - Scikit-learn
 - FastAPI
 - Uvicorn
 
-MLOps / DevOps:
+MLOps and DevOps:
 - Docker
 - GitHub Actions
 - SQLite
@@ -68,7 +70,7 @@ MLOps / DevOps:
 - Prometheus metrics
 - AWS EC2
 
-## Project Structure
+## Project structure
 
 ```text
 .
@@ -86,25 +88,25 @@ MLOps / DevOps:
 `-- requirements.txt
 ```
 
-Important folders and files:
-- `src/models/train.py`: training pipeline
-- `src/data/hdfs.py`: fallback sample HDFS-like data
-- `app/main.py`: FastAPI service
-- `src/utils/prediction_store.py`: SQLite prediction logging
-- `tests/`: API and training tests
-- `k8s/`: Kubernetes manifests
-- `.github/workflows/ci.yml`: CI workflow
+Important files:
+- `src/models/train.py` for training
+- `src/data/hdfs.py` for fallback sample data
+- `app/main.py` for the FastAPI service
+- `src/utils/prediction_store.py` for SQLite prediction logging
+- `tests/` for training and API tests
+- `k8s/` for Kubernetes manifests
+- `.github/workflows/ci.yml` for CI
 
 ## Dataset
 
-The project is designed for an HDFS anomaly dataset with these core columns:
+The project expects an HDFS anomaly dataset with these main columns:
 - `content`
 - `component`
 - `level`
 - `block_id`
 - `anomaly`
 
-Local training can use a real CSV placed in `data/raw/`.
+A real CSV can be placed in `data/raw/` for local training.
 
 Example schema:
 
@@ -114,40 +116,38 @@ content,component,level,block_id,anomaly
 "Received exception while serving block blk_112233445566 broken pipe","dfs.DataNode$DataXceiver",ERROR,"blk_112233445566",1
 ```
 
-Note:
-- large raw datasets are intentionally not committed to GitHub
-- if no real CSV exists, the project falls back to a tiny built-in sample dataset so the app still runs
+Large raw datasets are intentionally not committed to GitHub. If no real CSV is present, the project falls back to a tiny built-in sample dataset so the application can still run.
 
-## Model Training
+## Model training
 
 Training happens in `src/models/train.py`.
 
-What it does:
+In short, it:
 - reads the first CSV from `data/raw/`
 - falls back to sample data if no CSV exists
-- vectorizes log text using TF-IDF
-- encodes categorical features like component, level, and block ID
+- vectorizes the log text with TF-IDF
+- encodes categorical features such as component, level, and block ID
 - trains a Logistic Regression classifier
 - evaluates the model
-- saves artifacts in `artifacts/`
+- saves the model and artifacts in `artifacts/`
 
 Artifacts produced:
-- `artifacts/model.joblib`: trained model pipeline
-- `artifacts/metrics.json`: training metrics
-- `artifacts/sample_payload.json`: sample request payload
-- `artifacts/predictions.db`: SQLite prediction history
+- `artifacts/model.joblib`
+- `artifacts/metrics.json`
+- `artifacts/sample_payload.json`
+- `artifacts/predictions.db`
 
-## API Endpoints
+## API
 
-Base URL locally:
+Local base URL:
 - `http://127.0.0.1:8000`
 
-Endpoints:
-- `GET /` : basic service message
-- `GET /health` : health check and training metrics
-- `POST /predict` : predict anomaly probability for a log event
-- `GET /predictions/recent` : recent prediction history from SQLite
-- `GET /metrics` : Prometheus-compatible metrics
+Available endpoints:
+- `GET /` for a basic service message
+- `GET /health` for health status and training metrics
+- `POST /predict` for anomaly prediction
+- `GET /predictions/recent` for recent prediction history
+- `GET /metrics` for Prometheus-compatible metrics
 
 Example `/predict` request:
 
@@ -169,26 +169,26 @@ Example response:
 }
 ```
 
-## Prediction Logging
+## Prediction logging
 
-Each prediction is stored in SQLite so the system behaves more like a real ML service.
+Every prediction is stored in SQLite so the service behaves more like a real production system.
 
-Stored fields include:
+Each stored entry includes:
 - timestamp
-- content
+- log content
 - component
 - level
 - block ID
 - anomaly probability
 - predicted anomaly label
 
-Example recent predictions call:
+Example:
 
 ```bash
 curl "http://127.0.0.1:8000/predictions/recent?limit=10"
 ```
 
-## Local Development
+## Run locally
 
 Create and activate a virtual environment:
 
@@ -204,13 +204,13 @@ Train the model:
 python -m src.models.train
 ```
 
-Run the API:
+Start the API:
 
 ```bash
 python -m uvicorn app.main:app --reload
 ```
 
-Open:
+Then open:
 - `http://127.0.0.1:8000/docs`
 - `http://127.0.0.1:8000/health`
 
@@ -234,7 +234,7 @@ Run the container:
 docker run -p 8000:8000 hdfs-log-anomaly-api
 ```
 
-Or with Compose:
+Or use Compose:
 
 ```bash
 docker compose up --build
@@ -242,16 +242,16 @@ docker compose up --build
 
 ## GitHub Actions
 
-The CI workflow does the following on push and pull request:
+The CI workflow runs on push and pull request. It:
 - installs dependencies
-- runs tests
+- runs the test suite
 - builds the Docker image
 
-This validates that the repository is healthy and container-ready.
+This gives a quick signal that the project is healthy and container-ready.
 
-## EC2 Deployment
+## EC2 deployment
 
-The Dockerized API was validated on AWS EC2.
+The Dockerized API was tested and deployed on AWS EC2.
 
 Typical flow:
 1. clone the repository on EC2
@@ -260,13 +260,11 @@ Typical flow:
 4. open port `8000` in the EC2 security group
 5. access the API from the browser
 
-Example endpoints after deployment:
+Example deployed endpoints:
 - `http://<EC2-PUBLIC-IP>:8000/health`
 - `http://<EC2-PUBLIC-IP>:8000/docs`
 
-Note:
-- if the real dataset is not copied to EC2, the container uses the fallback sample dataset
-- local training can still use the full real dataset
+One important note: if the real dataset is not copied to EC2, the container will use the built-in fallback sample dataset.
 
 ## Screenshots
 
@@ -303,30 +301,31 @@ Included resources:
 - service manifest
 - Prometheus ServiceMonitor manifest
 
-Recommended path:
-- first validate locally with Docker or EC2
-- then deploy with Minikube for a free Kubernetes setup
-- later move to a managed cluster such as EKS if needed
+Current status:
+- the Kubernetes manifests are prepared
+- the project is ready for Minikube or EKS-style rollout on a machine with enough resources
+- Minikube was not fully validated on the small EC2 test instance because of resource limits
 
-## Current Status
+So the Kubernetes part of the project is prepared, but not yet fully validated on a larger cluster.
 
-This project currently supports:
+## Current status
+
+The project currently includes:
 - real local training on HDFS anomaly data
-- FastAPI inference service
+- a working FastAPI inference service
 - anomaly and non-anomaly predictions
 - prediction logging with SQLite
 - Docker packaging
 - GitHub Actions CI
 - EC2 deployment
-- Kubernetes manifests for the next deployment step
+- Kubernetes manifests prepared for the next deployment step
 
-## Future Improvements
+## Future improvements
 
-Planned next steps:
-- deploy and validate on Minikube
+Some good next steps would be:
+- validate the Kubernetes deployment on a stronger machine or managed cluster
 - make EC2 use the full real dataset as well
-- add screenshots and architecture diagram
 - add experiment tracking with MLflow
 - add drift monitoring
-- add model version metadata endpoint
-- improve preprocessing such as duplicate removal and data quality checks
+- expose model version metadata
+- improve preprocessing with duplicate removal and more data-quality checks
